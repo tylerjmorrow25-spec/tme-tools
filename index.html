@@ -112,15 +112,15 @@
       <label class="field-label">Who are you?</label>
       <select id="login-user">
         <option value="">Select your name...</option>
-        <option value="admin">Admin</option>
-        <option value="clarky">Clarky — Wooreen</option>
-        <option value="vinnie">Vinnie — Graymont</option>
-        <option value="user3">Supervisor 3</option>
-        <option value="user4">Supervisor 4</option>
-        <option value="user5">Supervisor 5</option>
-        <option value="user6">Supervisor 6</option>
-        <option value="user7">Supervisor 7</option>
-        <option value="user8">Supervisor 8</option>
+        <option value="admin">Teejy (Admin)</option>
+        <option value="pidge">Pidge</option>
+        <option value="sam">Sam</option>
+        <option value="smitty">Smitty</option>
+        <option value="clarky">Clarky</option>
+        <option value="vinnie">Vinnie</option>
+        <option value="kirky">Kirky</option>
+        <option value="hoppy">Hoppy</option>
+        <option value="gibby">Gibby</option>
         <option value="user9">Supervisor 9</option>
         <option value="user10">Supervisor 10</option>
       </select>
@@ -229,12 +229,14 @@
           <div class="field-group">
             <label class="field-label">Category</label>
             <select id="new-tool-cat">
-              <option value="Battery tool">Battery tool</option>
-              <option value="Power tool">Power tool</option>
-              <option value="Cable gear">Cable gear</option>
-              <option value="Ladder / steps">Ladder / steps</option>
-              <option value="Hand tool">Hand tool</option>
-              <option value="Other">Other</option>
+              <option value="Batteries">Batteries</option>
+              <option value="Battery tools">Battery tools</option>
+              <option value="Hand tools">Hand tools</option>
+              <option value="Office equipment">Office equipment</option>
+              <option value="Rollers">Rollers</option>
+              <option value="Safety equipment">Safety equipment</option>
+              <option value="Test equipment">Test equipment</option>
+              <option value="Tool accessories">Tool accessories</option>
             </select>
           </div>
           <div class="field-group"><label class="field-label">Notes (optional)</label><textarea id="new-tool-notes" placeholder="Serial number, condition etc."></textarea></div>
@@ -297,8 +299,8 @@
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbz4Rf1pbUMHbhRJbBdhBeOxtXH8WWyn9CcUpTqj4uRQEX_m9HoIFxiM2TyJXT5_Dk-loQ/exec';
-const PINS = { admin:'0000', clarky:'1234', vinnie:'1234', user3:'1234', user4:'1234', user5:'1234', user6:'1234', user7:'1234', user8:'1234', user9:'1234', user10:'1234' };
-const USER_LABELS = { admin:'Admin', clarky:'Clarky', vinnie:'Vinnie', user3:'Supervisor 3', user4:'Supervisor 4', user5:'Supervisor 5', user6:'Supervisor 6', user7:'Supervisor 7', user8:'Supervisor 8', user9:'Supervisor 9', user10:'Supervisor 10' };
+const PINS = { admin:'0000', pidge:'1234', sam:'1234', smitty:'1234', clarky:'1234', vinnie:'1234', kirky:'1234', hoppy:'1234', gibby:'1234', user9:'1234', user10:'1234' };
+const USER_LABELS = { admin:'Teejy', pidge:'Pidge', sam:'Sam', smitty:'Smitty', clarky:'Clarky', vinnie:'Vinnie', kirky:'Kirky', hoppy:'Hoppy', gibby:'Gibby', user9:'Supervisor 9', user10:'Supervisor 10' };
 
 let currentUser = null;
 let tools = [], activityLog = [], sites = [];
@@ -329,7 +331,8 @@ async function loadAll() {
     const data = await apiCall({ action: 'getAll' });
     tools = (data.tools||[]).slice(1).filter(r=>r[0]).map(r=>({ id:String(r[0]), name:String(r[1]), cat:String(r[2]), location:String(r[3]), notes:String(r[4]||''), condition:String(r[5]||'Good') }));
     activityLog = (data.log||[]).slice(1).filter(r=>r[0]).map(r=>({ time:String(r[0]), type:String(r[1]), tool:String(r[2]), toolName:String(r[3]), from:String(r[4]||''), to:String(r[5]||''), user:String(r[6]||'') }));
-    sites = (data.sites||[]).filter(r=>r[0]).map(r=>String(r[0]));
+    const raw = (data.sites||[]).filter(r=>r[0]).map(r=>String(r[0]));
+    sites = [...new Set(raw)];
     if (!sites.length) sites = ['Workshop'];
   } catch(e) { showToast('Could not connect to sheet'); }
 }
