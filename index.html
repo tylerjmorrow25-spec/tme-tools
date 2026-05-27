@@ -131,9 +131,6 @@
     </div>
     <div class="error-msg" id="login-error">Incorrect PIN.</div>
     <button class="btn btn-primary" style="margin-top:8px" onclick="doLogin()">Sign in →</button>
-    <div style="margin-top:16px;font-size:11px;color:var(--muted);text-align:center;line-height:1.6">
-      Admin PIN: <span style="font-family:var(--mono);color:var(--accent)">0000</span> &nbsp;·&nbsp; Supervisors: <span style="font-family:var(--mono);color:var(--accent)">1234</span>
-    </div>
   </div>
 </div>
 
@@ -239,7 +236,8 @@
               <option value="Tool accessories">Tool accessories</option>
             </select>
           </div>
-          <div class="field-group"><label class="field-label">Notes (optional)</label><textarea id="new-tool-notes" placeholder="Serial number, condition etc."></textarea></div>
+          <div class="field-group"><label class="field-label">Serial number (optional)</label><input type="text" id="new-tool-serial" placeholder="e.g. SN-123456"></div>
+          <div class="field-group"><label class="field-label">Notes (optional)</label><textarea id="new-tool-notes" placeholder="Any additional info..."></textarea></div>
           <button class="btn btn-primary" onclick="addTool()">Add to inventory</button>
           <div class="error-msg" id="add-tool-error">Please fill in asset number and tool name.</div>
         </div>
@@ -266,15 +264,7 @@
   <div class="modal">
     <div class="modal-title">Return tool <button class="modal-close" onclick="closeModal('return')">×</button></div>
     <div class="field-group"><label class="field-label">Tool returning</label><select id="ret-tool"></select></div>
-    <div class="field-group">
-      <label class="field-label">Condition</label>
-      <select id="ret-condition">
-        <option value="Good">Good</option>
-        <option value="Needs attention">Needs attention</option>
-        <option value="Damaged">Damaged</option>
-      </select>
-    </div>
-    <div class="field-group"><label class="field-label">Notes (optional)</label><input type="text" id="ret-notes" placeholder="Any relevant details"></div>
+    <div class="field-group"><label class="field-label">Notes (optional)</label><input type="text" id="ret-notes" placeholder="Condition, any issues etc."></div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal('return')">Cancel</button>
       <button class="btn btn-success" id="btn-ret" onclick="doReturn()">Confirm return</button>
@@ -299,7 +289,7 @@
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbz4Rf1pbUMHbhRJbBdhBeOxtXH8WWyn9CcUpTqj4uRQEX_m9HoIFxiM2TyJXT5_Dk-loQ/exec';
-const PINS = { admin:'0000', pidge:'1234', sam:'1234', smitty:'1234', clarky:'1234', vinnie:'1234', kirky:'1234', hoppy:'1234', gibby:'1234', user9:'1234', user10:'1234' };
+const PINS = { admin:'0000', pidge:'1212', sam:'2323', smitty:'3434', clarky:'4545', vinnie:'5656', kirky:'6767', hoppy:'7878', gibby:'8989', user9:'1357', user10:'2468' };
 const USER_LABELS = { admin:'Teejy', pidge:'Pidge', sam:'Sam', smitty:'Smitty', clarky:'Clarky', vinnie:'Vinnie', kirky:'Kirky', hoppy:'Hoppy', gibby:'Gibby', user9:'Supervisor 9', user10:'Supervisor 10' };
 
 let currentUser = null;
@@ -329,7 +319,7 @@ async function apiCall(params) {
 async function loadAll() {
   try {
     const data = await apiCall({ action: 'getAll' });
-    tools = (data.tools||[]).slice(1).filter(r=>r[0]).map(r=>({ id:String(r[0]), name:String(r[1]), cat:String(r[2]), location:String(r[3]), notes:String(r[4]||''), condition:String(r[5]||'Good') }));
+    tools = (data.tools||[]).slice(1).filter(r=>r[0]).map(r=>({ id:String(r[0]), name:String(r[1]), cat:String(r[2]), location:String(r[3]), serial:String(r[4]||''), notes:String(r[5]||'') }));
     activityLog = (data.log||[]).slice(1).filter(r=>r[0]).map(r=>({ time:String(r[0]), type:String(r[1]), tool:String(r[2]), toolName:String(r[3]), from:String(r[4]||''), to:String(r[5]||''), user:String(r[6]||'') }));
     const raw = (data.sites||[]).filter(r=>r[0]).map(r=>String(r[0]));
     sites = [...new Set(raw)];
@@ -383,15 +373,15 @@ function renderDashboard() {
   const el = document.getElementById('dashboard-out-list');
   if(!tools.length){el.innerHTML='<div class="empty-state">No tools yet — add tools in Admin</div>';return;}
   if(!out.length){el.innerHTML='<div class="empty-state">All tools are in the workshop ✓</div>';return;}
-  el.innerHTML=out.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}</div></div><span class="badge badge-out">${t.location}</span></div>`).join('');
+  el.innerHTML=out.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}</div></div><span class="badge badge-out">${t.location}</span></div>`).join('');
 }
 
 function renderTools() {
   const q=(document.getElementById('tool-search').value||'').toLowerCase();
-  const f=tools.filter(t=>t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q));
+  const f=tools.filter(t=>t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||t.serial.toLowerCase().includes(q));
   const el=document.getElementById('tools-list');
   if(!f.length){el.innerHTML='<div class="empty-state">No tools found</div>';return;}
-  el.innerHTML=f.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.notes?' · '+t.notes:''}</div></div><span class="badge ${t.location==='Workshop'?'badge-workshop':'badge-out'}">${t.location}</span></div>`).join('');
+  el.innerHTML=f.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}${t.notes?' · '+t.notes:''}</div></div><span class="badge ${t.location==='Workshop'?'badge-workshop':'badge-out'}">${t.location}</span></div>`).join('');
 }
 
 function clearLogFilter(){ document.getElementById('log-date-from').value=''; document.getElementById('log-date-to').value=''; renderLog(); }
@@ -407,7 +397,7 @@ function renderLog() {
   el.innerHTML=entries.map(e=>{
     let dotClass='log-dot-out',text='';
     if(e.type==='checkout') text=`<strong>${e.toolName}</strong> (${e.tool}) checked out to <span class="highlight">${e.to}</span> by ${e.user}`;
-    else if(e.type==='return'){dotClass='log-dot-return';text=`<strong>${e.toolName}</strong> (${e.tool}) returned to workshop by ${e.user}${e.condition?' — '+e.condition:''}`;}
+    else if(e.type==='return'){dotClass='log-dot-return';text=`<strong>${e.toolName}</strong> (${e.tool}) returned to workshop by ${e.user}${e.notes?' — '+e.notes:''}`;}
     else if(e.type==='transfer'){dotClass='log-dot-transfer';text=`<strong>${e.toolName}</strong> (${e.tool}) transferred <span class="highlight">${e.from}</span> → <span class="highlight">${e.to}</span> by ${e.user}`;}
     return `<div class="log-row"><div class="log-dot ${dotClass}"></div><div class="log-text">${text}</div><div class="log-time">${e.time}</div></div>`;
   }).join('');
@@ -450,7 +440,7 @@ async function doCheckout(){
   const btn=document.getElementById('btn-co');btn.disabled=true;btn.textContent='Saving...';
   const ts=now();
   try{
-    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:site,condition:tool.condition})});
+    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:site,condition:tool.notes})});
     await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'checkout',tool:toolId,toolName:tool.name,from:tool.location,to:site,user:USER_LABELS[currentUser]})});
     tool.location=site;
     activityLog.push({time:ts,type:'checkout',tool:toolId,toolName:tool.name,from:'Workshop',to:site,user:USER_LABELS[currentUser]});
@@ -461,17 +451,16 @@ async function doCheckout(){
 
 async function doReturn(){
   const toolId=document.getElementById('ret-tool').value;
-  const condition=document.getElementById('ret-condition').value;
   const notes=document.getElementById('ret-notes').value;
   if(!toolId)return;
   const tool=getTool(toolId);if(!tool)return;
   const btn=document.getElementById('btn-ret');btn.disabled=true;btn.textContent='Saving...';
   const ts=now();
   try{
-    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:'Workshop',condition})});
-    await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],condition})});
-    tool.location='Workshop';tool.condition=condition;
-    activityLog.push({time:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],condition});
+    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:'Workshop',condition:notes})});
+    await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes})});
+    tool.location='Workshop';tool.notes=notes;
+    activityLog.push({time:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes});
     closeModal('return');renderDashboard();showToast('✓ '+tool.name+' returned to workshop');
   }catch(e){showToast('Error saving — try again');}
   btn.disabled=false;btn.textContent='Confirm return';
@@ -486,7 +475,7 @@ async function doTransfer(){
   const btn=document.getElementById('btn-tr');btn.disabled=true;btn.textContent='Saving...';
   const from=tool.location;const ts=now();
   try{
-    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:toSite,condition:tool.condition})});
+    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:toSite,condition:tool.notes})});
     await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'transfer',tool:toolId,toolName:tool.name,from,to:toSite,user:USER_LABELS[currentUser]})});
     tool.location=toSite;
     activityLog.push({time:ts,type:'transfer',tool:toolId,toolName:tool.name,from,to:toSite,user:USER_LABELS[currentUser]});
@@ -509,17 +498,19 @@ async function addTool(){
   const id=document.getElementById('new-tool-id').value.trim();
   const name=document.getElementById('new-tool-name').value.trim();
   const cat=document.getElementById('new-tool-cat').value;
+  const serial=document.getElementById('new-tool-serial').value.trim();
   const notes=document.getElementById('new-tool-notes').value.trim();
   const err=document.getElementById('add-tool-error');
   if(!id||!name){err.style.display='block';return;}
   if(tools.find(t=>t.id===id)){err.style.display='block';err.textContent='Asset number already exists.';return;}
   err.style.display='none';
   try{
-    await apiCall({action:'addTool',data:JSON.stringify({id,name,cat,notes})});
+    await apiCall({action:'addTool',data:JSON.stringify({id,name,cat,notes:serial,condition:notes})});
     await apiCall({action:'addLog',data:JSON.stringify({timestamp:now(),type:'checkout',tool:id,toolName:name,from:'',to:'Workshop (added)',user:USER_LABELS[currentUser]})});
-    tools.push({id,name,cat,location:'Workshop',notes,condition:'Good'});
+    tools.push({id,name,cat,location:'Workshop',serial,notes});
     document.getElementById('new-tool-id').value='';
     document.getElementById('new-tool-name').value='';
+    document.getElementById('new-tool-serial').value='';
     document.getElementById('new-tool-notes').value='';
     showToast('✓ '+name+' added to inventory');
   }catch(e){showToast('Error adding tool');}
