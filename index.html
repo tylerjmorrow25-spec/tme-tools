@@ -121,8 +121,14 @@
         <option value="kirky">Kirky</option>
         <option value="hoppy">Hoppy</option>
         <option value="gibby">Gibby</option>
-        <option value="user9">Supervisor 9</option>
-        <option value="user10">Supervisor 10</option>
+        <option value="annie">Annie</option>
+        <option value="juzi">Juzi</option>
+        <option value="kyle">Kyle</option>
+        <option value="jesse">Jesse</option>
+        <option value="sup14">Supervisor 14</option>
+        <option value="sup15">Supervisor 15</option>
+        <option value="sup16">Supervisor 16</option>
+        <option value="sup17">Supervisor 17</option>
       </select>
     </div>
     <div class="field-group">
@@ -289,8 +295,21 @@
 
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbz4Rf1pbUMHbhRJbBdhBeOxtXH8WWyn9CcUpTqj4uRQEX_m9HoIFxiM2TyJXT5_Dk-loQ/exec';
-const PINS = { admin:'0000', pidge:'1212', sam:'2323', smitty:'3434', clarky:'4545', vinnie:'5656', kirky:'6767', hoppy:'7878', gibby:'8989', user9:'1357', user10:'2468' };
-const USER_LABELS = { admin:'Teejy', pidge:'Pidge', sam:'Sam', smitty:'Smitty', clarky:'Clarky', vinnie:'Vinnie', kirky:'Kirky', hoppy:'Hoppy', gibby:'Gibby', user9:'Supervisor 9', user10:'Supervisor 10' };
+
+const PINS = {
+  admin:'0000', pidge:'1212', sam:'2323', smitty:'3434',
+  clarky:'4545', vinnie:'5656', kirky:'6767', hoppy:'7878',
+  gibby:'8989', annie:'1122', juzi:'2233', kyle:'3344',
+  jesse:'4455', sup14:'5566', sup15:'6677', sup16:'7788', sup17:'8899'
+};
+
+const USER_LABELS = {
+  admin:'Teejy', pidge:'Pidge', sam:'Sam', smitty:'Smitty',
+  clarky:'Clarky', vinnie:'Vinnie', kirky:'Kirky', hoppy:'Hoppy',
+  gibby:'Gibby', annie:'Annie', juzi:'Juzi', kyle:'Kyle',
+  jesse:'Jesse', sup14:'Supervisor 14', sup15:'Supervisor 15',
+  sup16:'Supervisor 16', sup17:'Supervisor 17'
+};
 
 let currentUser = null;
 let tools = [], activityLog = [], sites = [];
@@ -319,8 +338,14 @@ async function apiCall(params) {
 async function loadAll() {
   try {
     const data = await apiCall({ action: 'getAll' });
-    tools = (data.tools||[]).slice(1).filter(r=>r[0]).map(r=>({ id:String(r[0]), name:String(r[1]), cat:String(r[2]), location:String(r[3]), serial:String(r[4]||''), notes:String(r[5]||'') }));
-    activityLog = (data.log||[]).slice(1).filter(r=>r[0]).map(r=>({ time:String(r[0]), type:String(r[1]), tool:String(r[2]), toolName:String(r[3]), from:String(r[4]||''), to:String(r[5]||''), user:String(r[6]||'') }));
+    tools = (data.tools||[]).slice(1).filter(r=>r[0]).map(r=>({
+      id:String(r[0]), name:String(r[1]), cat:String(r[2]),
+      location:String(r[3]), serial:String(r[4]||''), notes:String(r[5]||'')
+    }));
+    activityLog = (data.log||[]).slice(1).filter(r=>r[0]).map(r=>({
+      time:String(r[0]), type:String(r[1]), tool:String(r[2]),
+      toolName:String(r[3]), from:String(r[4]||''), to:String(r[5]||''), user:String(r[6]||'')
+    }));
     const raw = (data.sites||[]).filter(r=>r[0]).map(r=>String(r[0]));
     sites = [...new Set(raw)];
     if (!sites.length) sites = ['Workshop'];
@@ -362,7 +387,10 @@ function showTab(name) {
 }
 
 function showAdminTab(name) {
-  ['users','sites','addtool'].forEach(t => { document.getElementById('admin-'+t).style.display=t===name?'block':'none'; document.getElementById('atab-'+t).classList.toggle('active',t===name); });
+  ['users','sites','addtool'].forEach(t => {
+    document.getElementById('admin-'+t).style.display=t===name?'block':'none';
+    document.getElementById('atab-'+t).classList.toggle('active',t===name);
+  });
 }
 
 function renderDashboard() {
