@@ -107,6 +107,8 @@
   .date-filter { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; flex-wrap: wrap; }
   .date-filter input[type="date"] { flex: 1; min-width: 130px; padding: 8px 10px; font-size: 13px; }
   .date-filter .btn { width: auto; padding: 8px 12px; font-size: 12px; }
+  .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .quick-actions .btn-transfer { grid-column: span 2; }
 </style>
 </head>
 <body>
@@ -164,6 +166,11 @@
   <div class="main">
 
     <div id="tab-dashboard">
+      <div class="quick-actions">
+        <button class="btn btn-blue" onclick="openModal('checkout')">Check out tool</button>
+        <button class="btn btn-success" onclick="openModal('return')">Return tool</button>
+        <button class="btn btn-ghost btn-transfer" onclick="openModal('transfer')">Transfer site → site</button>
+      </div>
       <div class="stats-row">
         <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-label">Total</div></div>
         <div class="stat-card"><div class="stat-val" style="color:var(--success)" id="stat-in">—</div><div class="stat-label">In workshop</div></div>
@@ -172,14 +179,6 @@
       <div class="card">
         <div class="card-title">Tools currently out</div>
         <div id="dashboard-out-list"><div class="loading-bar"><span class="spinner"></span>Loading from sheet...</div></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Quick actions</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <button class="btn btn-blue" onclick="openModal('checkout')">Check out tool</button>
-          <button class="btn btn-success" onclick="openModal('return')">Return tool</button>
-          <button class="btn btn-ghost" onclick="openModal('transfer')" style="grid-column:span 2">Transfer site → site</button>
-        </div>
       </div>
     </div>
 
@@ -319,19 +318,12 @@ const USER_LABELS = {
 };
 
 const SITE_BADGE = {
-  'Workshop': 'badge-workshop',
-  'Wooreen': 'badge-wooreen',
-  'Graymont': 'badge-graymont',
-  'Mill': 'badge-mill',
-  'Hazelwood': 'badge-hazelwood',
-  'Delburn': 'badge-delburn',
-  'Loy Yang': 'badge-loyang',
-  'Orbost': 'badge-orbost'
+  'Workshop':'badge-workshop', 'Wooreen':'badge-wooreen', 'Graymont':'badge-graymont',
+  'Mill':'badge-mill', 'Hazelwood':'badge-hazelwood', 'Delburn':'badge-delburn',
+  'Loy Yang':'badge-loyang', 'Orbost':'badge-orbost'
 };
 
-function siteBadge(location) {
-  return SITE_BADGE[location] || 'badge-default';
-}
+function siteBadge(location) { return SITE_BADGE[location] || 'badge-default'; }
 
 let currentUser = null;
 let tools = [], activityLog = [], sites = [];
