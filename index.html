@@ -63,8 +63,15 @@
   .tool-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tool-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; font-family: var(--mono); letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
-  .badge-workshop { background: rgba(34,197,94,0.15); color: var(--success); }
-  .badge-out { background: rgba(245,166,35,0.15); color: var(--accent); }
+  .badge-workshop { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .badge-wooreen { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .badge-graymont { background: rgba(59,130,246,0.15); color: #3b82f6; }
+  .badge-mill { background: rgba(236,72,153,0.15); color: #ec4899; }
+  .badge-hazelwood { background: rgba(234,179,8,0.15); color: #eab308; }
+  .badge-delburn { background: rgba(180,120,60,0.15); color: #b4783c; }
+  .badge-loyang { background: rgba(255,255,255,0.1); color: #e8eaf0; }
+  .badge-orbost { background: rgba(168,85,247,0.15); color: #a855f7; }
+  .badge-default { background: rgba(245,166,35,0.15); color: #f5a623; }
   .log-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
   .log-row:last-child { border-bottom: none; }
   .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
@@ -311,6 +318,21 @@ const USER_LABELS = {
   sup16:'Supervisor 16', sup17:'Supervisor 17'
 };
 
+const SITE_BADGE = {
+  'Workshop': 'badge-workshop',
+  'Wooreen': 'badge-wooreen',
+  'Graymont': 'badge-graymont',
+  'Mill': 'badge-mill',
+  'Hazelwood': 'badge-hazelwood',
+  'Delburn': 'badge-delburn',
+  'Loy Yang': 'badge-loyang',
+  'Orbost': 'badge-orbost'
+};
+
+function siteBadge(location) {
+  return SITE_BADGE[location] || 'badge-default';
+}
+
 let currentUser = null;
 let tools = [], activityLog = [], sites = [];
 
@@ -401,7 +423,7 @@ function renderDashboard() {
   const el = document.getElementById('dashboard-out-list');
   if(!tools.length){el.innerHTML='<div class="empty-state">No tools yet — add tools in Admin</div>';return;}
   if(!out.length){el.innerHTML='<div class="empty-state">All tools are in the workshop ✓</div>';return;}
-  el.innerHTML=out.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}</div></div><span class="badge badge-out">${t.location}</span></div>`).join('');
+  el.innerHTML=out.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}</div></div><span class="badge ${siteBadge(t.location)}">${t.location}</span></div>`).join('');
 }
 
 function renderTools() {
@@ -409,7 +431,7 @@ function renderTools() {
   const f=tools.filter(t=>t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||t.serial.toLowerCase().includes(q));
   const el=document.getElementById('tools-list');
   if(!f.length){el.innerHTML='<div class="empty-state">No tools found</div>';return;}
-  el.innerHTML=f.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}${t.notes?' · '+t.notes:''}</div></div><span class="badge ${t.location==='Workshop'?'badge-workshop':'badge-out'}">${t.location}</span></div>`).join('');
+  el.innerHTML=f.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}${t.notes?' · '+t.notes:''}</div></div><span class="badge ${siteBadge(t.location)}">${t.location}</span></div>`).join('');
 }
 
 function clearLogFilter(){ document.getElementById('log-date-from').value=''; document.getElementById('log-date-to').value=''; renderLog(); }
@@ -424,16 +446,16 @@ function renderLog() {
   if(!entries.length){el.innerHTML='<div class="empty-state">No activity in this period</div>';return;}
   el.innerHTML=entries.map(e=>{
     let dotClass='log-dot-out',text='';
-    if(e.type==='checkout') text=`<strong>${e.toolName}</strong> (${e.tool}) checked out to <span class="highlight">${e.to}</span> by ${e.user}`;
-    else if(e.type==='return'){dotClass='log-dot-return';text=`<strong>${e.toolName}</strong> (${e.tool}) returned to workshop by ${e.user}${e.notes?' — '+e.notes:''}`;}
-    else if(e.type==='transfer'){dotClass='log-dot-transfer';text=`<strong>${e.toolName}</strong> (${e.tool}) transferred <span class="highlight">${e.from}</span> → <span class="highlight">${e.to}</span> by ${e.user}`;}
+    if(e.type==='checkout') text=`<strong>${e.toolName}</strong> (${e.tool}) checked out to <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${e.to}</span> by ${e.user}`;
+    else if(e.type==='return'){dotClass='log-dot-return';text=`<strong>${e.toolName}</strong> (${e.tool}) returned to <span class="badge badge-workshop" style="font-size:9px">Workshop</span> by ${e.user}${e.notes?' — '+e.notes:''}`;}
+    else if(e.type==='transfer'){dotClass='log-dot-transfer';text=`<strong>${e.toolName}</strong> (${e.tool}) transferred <span class="badge ${siteBadge(e.from)}" style="font-size:9px">${e.from}</span> → <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${e.to}</span> by ${e.user}`;}
     return `<div class="log-row"><div class="log-dot ${dotClass}"></div><div class="log-text">${text}</div><div class="log-time">${e.time}</div></div>`;
   }).join('');
 }
 
 function renderAdmin() {
   document.getElementById('users-list').innerHTML=Object.entries(USER_LABELS).map(([k,v])=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${v}</div><div class="tool-meta">${k==='admin'?'Administrator':'Supervisor'}</div></div><span class="badge" style="background:var(--surface2);color:var(--muted)">${k==='admin'?'admin':'user'}</span></div>`).join('');
-  document.getElementById('sites-list').innerHTML=sites.map(s=>`<span class="site-pill">${s}</span>`).join('');
+  document.getElementById('sites-list').innerHTML=sites.map(s=>`<span class="badge ${siteBadge(s)}" style="margin:3px;padding:4px 10px;font-size:12px">${s}</span>`).join('');
 }
 
 function openModal(type) {
