@@ -63,6 +63,7 @@
   .tool-info { flex: 1; min-width: 0; }
   .tool-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tool-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+  .tool-flags { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 500; font-family: var(--mono); letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
   .badge-workshop { background: rgba(34,197,94,0.15); color: #22c55e; }
   .badge-wooreen { background: rgba(239,68,68,0.15); color: #ef4444; }
@@ -73,12 +74,16 @@
   .badge-loyang { background: rgba(255,255,255,0.1); color: #e8eaf0; }
   .badge-orbost { background: rgba(168,85,247,0.15); color: #a855f7; }
   .badge-default { background: rgba(245,166,35,0.15); color: #f5a623; }
+  .badge-barcode { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); cursor: default; }
+  .badge-barcode-admin { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); cursor: pointer; }
+  .badge-barcode-admin:hover { background: rgba(239,68,68,0.35); }
   .log-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
   .log-row:last-child { border-bottom: none; }
   .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
   .log-dot-out { background: var(--accent); }
   .log-dot-return { background: var(--success); }
   .log-dot-transfer { background: var(--accent2); }
+  .log-dot-cleared { background: #22c55e; }
   .log-text { font-size: 13px; line-height: 1.5; flex: 1; }
   .log-time { font-size: 11px; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: flex-end; justify-content: center; }
@@ -117,6 +122,8 @@
   .tool-option.selected { background: rgba(245,166,35,0.1); border-left: 3px solid var(--accent); }
   .tool-option-name { font-weight: 500; }
   .tool-option-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .barcode-alert { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #ef4444; }
+  .barcode-alert-count { font-family: var(--mono); font-weight: 600; font-size: 18px; }
 </style>
 </head>
 <body>
@@ -179,6 +186,7 @@
         <button class="btn btn-success" onclick="openModal('return')">Return tool</button>
         <button class="btn btn-ghost btn-transfer" onclick="openModal('transfer')">Transfer site → site</button>
       </div>
+      <div id="barcode-alert-box"></div>
       <div class="stats-row">
         <div class="stat-card"><div class="stat-val" id="stat-total">—</div><div class="stat-label">Total</div></div>
         <div class="stat-card"><div class="stat-val" style="color:var(--success)" id="stat-in">—</div><div class="stat-label">In workshop</div></div>
@@ -256,8 +264,15 @@
               <option value="Tool accessories">Tool accessories</option>
             </select>
           </div>
-          <div class="field-group"><label class="field-label">Serial number (optional)</label><input type="text" id="new-tool-serial" placeholder="e.g. SN-123456"></div>
+          <div class="field-group">
+            <label class="field-label">Current location</label>
+            <select id="new-tool-location"></select>
+          </div>
+          <div class="field-group"><label class="field-label">Serial / Model Number (if applicable)</label><input type="text" id="new-tool-serial" placeholder="e.g. DHP453 / SN-123456"></div>
           <div class="field-group"><label class="field-label">Notes (optional)</label><textarea id="new-tool-notes" placeholder="Any additional info..."></textarea></div>
+          <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#ef4444;line-height:1.5">
+            ⚠️ All new tools are automatically flagged as <strong>Needs barcode</strong> until cleared by Admin after workshop check-in.
+          </div>
           <button class="btn btn-primary" onclick="addTool()">Add to inventory</button>
           <div class="error-msg" id="add-tool-error">Please fill in asset number and tool name.</div>
         </div>
@@ -365,6 +380,7 @@ function fmtTime(d) {
 }
 function now() { return fmtTime(new Date()); }
 function getTool(id) { return tools.find(t => t.id === id); }
+function isAdmin() { return currentUser === 'admin'; }
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -383,7 +399,8 @@ async function loadAll() {
     const data = await apiCall({ action: 'getAll' });
     tools = (data.tools||[]).slice(1).filter(r=>r[0]).map(r=>({
       id:String(r[0]), name:String(r[1]), cat:String(r[2]),
-      location:String(r[3]), serial:String(r[4]||''), notes:String(r[5]||'')
+      location:String(r[3]), serial:String(r[4]||''), notes:String(r[5]||''),
+      needsBarcode: String(r[5]||'').includes('NEEDS_BARCODE')
     }));
     activityLog = (data.log||[]).slice(1).filter(r=>r[0]).map(r=>({
       time:String(r[0]), type:String(r[1]), tool:String(r[2]),
@@ -406,7 +423,7 @@ function doLogin() {
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('topbar-username').textContent = USER_LABELS[user];
-  document.getElementById('nav-admin').style.display = user==='admin' ? 'block' : 'none';
+  document.getElementById('nav-admin').style.display = isAdmin() ? 'block' : 'none';
   loadAll().then(() => showTab('dashboard'));
 }
 
@@ -434,25 +451,78 @@ function showAdminTab(name) {
     document.getElementById('admin-'+t).style.display=t===name?'block':'none';
     document.getElementById('atab-'+t).classList.toggle('active',t===name);
   });
+  if(name==='addtool') {
+    document.getElementById('new-tool-location').innerHTML = sites.map(s=>`<option>${s}</option>`).join('');
+  }
+}
+
+function barcodeBadge(tool) {
+  if (!tool.needsBarcode) return '';
+  if (isAdmin()) {
+    return `<span class="badge badge-barcode-admin" title="Click to clear barcode flag" onclick="clearBarcode('${tool.id}')">⚠ Needs barcode ✕</span>`;
+  }
+  return `<span class="badge badge-barcode">⚠ Needs barcode</span>`;
+}
+
+async function clearBarcode(toolId) {
+  if (!isAdmin()) return;
+  if (!confirm('Confirm barcode has been applied to this tool?')) return;
+  const tool = getTool(toolId);
+  if (!tool) return;
+  const newNotes = tool.notes.replace('NEEDS_BARCODE', '').trim();
+  try {
+    await apiCall({action:'updateTool', data:JSON.stringify({id:toolId, location:tool.location, condition:newNotes})});
+    await apiCall({action:'addLog', data:JSON.stringify({timestamp:now(), type:'barcode', tool:toolId, toolName:tool.name, from:'', to:'', user:USER_LABELS[currentUser]})});
+    tool.notes = newNotes;
+    tool.needsBarcode = false;
+    renderDashboard();
+    renderTools();
+    showToast('✓ Barcode cleared for '+tool.name);
+  } catch(e) { showToast('Error clearing barcode'); }
 }
 
 function renderDashboard() {
   const out = tools.filter(t=>t.location!=='Workshop');
+  const needsBarcode = tools.filter(t=>t.needsBarcode);
   document.getElementById('stat-total').textContent = tools.length;
   document.getElementById('stat-in').textContent = tools.filter(t=>t.location==='Workshop').length;
   document.getElementById('stat-out').textContent = out.length;
+
+  const alertBox = document.getElementById('barcode-alert-box');
+  if (needsBarcode.length > 0) {
+    alertBox.innerHTML = `<div class="barcode-alert"><span class="barcode-alert-count">${needsBarcode.length}</span> tool${needsBarcode.length>1?'s':''} need${needsBarcode.length===1?'s':''} barcode tagging — check Tools tab</div>`;
+  } else {
+    alertBox.innerHTML = '';
+  }
+
   const el = document.getElementById('dashboard-out-list');
   if(!tools.length){el.innerHTML='<div class="empty-state">No tools yet — add tools in Admin</div>';return;}
   if(!out.length){el.innerHTML='<div class="empty-state">All tools are in the workshop ✓</div>';return;}
-  el.innerHTML=out.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}</div></div><span class="badge ${siteBadge(t.location)}">${t.location}</span></div>`).join('');
+  el.innerHTML=out.map(t=>`
+    <div class="tool-row">
+      <div class="tool-info">
+        <div class="tool-name">${t.name}</div>
+        <div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · '+t.serial:''}</div>
+        <div class="tool-flags">${barcodeBadge(t)}</div>
+      </div>
+      <span class="badge ${siteBadge(t.location)}">${t.location}</span>
+    </div>`).join('');
 }
 
 function renderTools() {
   const q=(document.getElementById('tool-search').value||'').toLowerCase();
-  const f=tools.filter(t=>t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||t.serial.toLowerCase().includes(q));
+  const f=tools.filter(t=>t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||(t.serial||'').toLowerCase().includes(q));
   const el=document.getElementById('tools-list');
   if(!f.length){el.innerHTML='<div class="empty-state">No tools found</div>';return;}
-  el.innerHTML=f.map(t=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${t.name}</div><div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · S/N: '+t.serial:''}${t.notes?' · '+t.notes:''}</div></div><span class="badge ${siteBadge(t.location)}">${t.location}</span></div>`).join('');
+  el.innerHTML=f.map(t=>`
+    <div class="tool-row">
+      <div class="tool-info">
+        <div class="tool-name">${t.name}</div>
+        <div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · '+t.serial:''}${t.notes&&!t.notes.includes('NEEDS_BARCODE')?' · '+t.notes:''}</div>
+        <div class="tool-flags">${barcodeBadge(t)}</div>
+      </div>
+      <span class="badge ${siteBadge(t.location)}">${t.location}</span>
+    </div>`).join('');
 }
 
 function clearLogFilter(){ document.getElementById('log-date-from').value=''; document.getElementById('log-date-to').value=''; renderLog(); }
@@ -470,6 +540,7 @@ function renderLog() {
     if(e.type==='checkout') text=`<strong>${e.toolName}</strong> (${e.tool}) checked out to <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${e.to}</span> by ${e.user}`;
     else if(e.type==='return'){dotClass='log-dot-return';text=`<strong>${e.toolName}</strong> (${e.tool}) returned to <span class="badge badge-workshop" style="font-size:9px">Workshop</span> by ${e.user}${e.notes?' — '+e.notes:''}`;}
     else if(e.type==='transfer'){dotClass='log-dot-transfer';text=`<strong>${e.toolName}</strong> (${e.tool}) transferred <span class="badge ${siteBadge(e.from)}" style="font-size:9px">${e.from}</span> → <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${e.to}</span> by ${e.user}`;}
+    else if(e.type==='barcode'){dotClass='log-dot-cleared';text=`<strong>${e.toolName}</strong> (${e.tool}) barcode cleared by ${e.user}`;}
     return `<div class="log-row"><div class="log-dot ${dotClass}"></div><div class="log-text">${text}</div><div class="log-time">${e.time}</div></div>`;
   }).join('');
 }
@@ -479,15 +550,14 @@ function renderAdmin() {
   document.getElementById('sites-list').innerHTML=sites.map(s=>`<span class="badge ${siteBadge(s)}" style="margin:3px;padding:4px 10px;font-size:12px">${s}</span>`).join('');
 }
 
-// Tool search helpers
-function buildToolList(containerId, selectedId, toolList, onSelect) {
+function buildToolList(containerId, selectedId, toolList) {
   const el = document.getElementById(containerId);
   if(!toolList.length){ el.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;text-align:center">No tools found</div>'; return; }
   el.innerHTML = toolList.map(t => `
     <div class="tool-option ${document.getElementById(selectedId).value===t.id?'selected':''}"
       onclick="selectTool('${selectedId}','${containerId}','${t.id}','${t.name.replace(/'/g,"\\'")}','${t.id}')">
       <div>
-        <div class="tool-option-name">${t.name}</div>
+        <div class="tool-option-name">${t.name}${t.needsBarcode?' <span style="color:#ef4444;font-size:10px">⚠</span>':''}</div>
         <div class="tool-option-meta">${t.id} · ${t.cat}</div>
       </div>
       <span class="badge ${siteBadge(t.location)}" style="font-size:9px">${t.location}</span>
@@ -577,9 +647,9 @@ async function doReturn(){
   const btn=document.getElementById('btn-ret');btn.disabled=true;btn.textContent='Saving...';
   const ts=now();
   try{
-    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:'Workshop',condition:notes})});
+    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:'Workshop',condition:tool.notes})});
     await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes})});
-    tool.location='Workshop';tool.notes=notes;
+    tool.location='Workshop';
     activityLog.push({time:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes});
     closeModal('return');renderDashboard();showToast('✓ '+tool.name+' returned to workshop');
   }catch(e){showToast('Error saving — try again');}
@@ -619,21 +689,23 @@ async function addTool(){
   const id=document.getElementById('new-tool-id').value.trim();
   const name=document.getElementById('new-tool-name').value.trim();
   const cat=document.getElementById('new-tool-cat').value;
+  const location=document.getElementById('new-tool-location').value;
   const serial=document.getElementById('new-tool-serial').value.trim();
-  const notes=document.getElementById('new-tool-notes').value.trim();
+  const notes=('NEEDS_BARCODE '+(document.getElementById('new-tool-notes').value.trim())).trim();
   const err=document.getElementById('add-tool-error');
   if(!id||!name){err.style.display='block';return;}
   if(tools.find(t=>t.id===id)){err.style.display='block';err.textContent='Asset number already exists.';return;}
   err.style.display='none';
   try{
     await apiCall({action:'addTool',data:JSON.stringify({id,name,cat,notes:serial,condition:notes})});
-    await apiCall({action:'addLog',data:JSON.stringify({timestamp:now(),type:'checkout',tool:id,toolName:name,from:'',to:'Workshop (added)',user:USER_LABELS[currentUser]})});
-    tools.push({id,name,cat,location:'Workshop',serial,notes});
+    await apiCall({action:'addLog',data:JSON.stringify({timestamp:now(),type:'checkout',tool:id,toolName:name,from:'',to:location+' (added)',user:USER_LABELS[currentUser]})});
+    tools.push({id,name,cat,location,serial,notes,needsBarcode:true});
     document.getElementById('new-tool-id').value='';
     document.getElementById('new-tool-name').value='';
     document.getElementById('new-tool-serial').value='';
     document.getElementById('new-tool-notes').value='';
-    showToast('✓ '+name+' added to inventory');
+    renderDashboard();
+    showToast('✓ '+name+' added — barcode flag set');
   }catch(e){showToast('Error adding tool');}
 }
 
