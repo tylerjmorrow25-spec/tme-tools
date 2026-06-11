@@ -96,7 +96,7 @@
   .tab-row { display: flex; gap: 4px; margin-bottom: 16px; background: var(--bg); border-radius: 8px; padding: 3px; }
   .tab { flex: 1; text-align: center; padding: 7px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; color: var(--muted); transition: background 0.15s, color 0.15s; }
   .tab.active { background: var(--surface2); color: var(--text); }
-  .search-wrap { position: relative; margin-bottom: 12px; }
+  .search-wrap { position: relative; margin-bottom: 8px; }
   .search-wrap input { padding-left: 32px; }
   .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 14px; pointer-events: none; }
   .empty-state { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 13px; }
@@ -124,6 +124,9 @@
   .tool-option-meta { font-size: 11px; color: var(--muted); font-family: var(--mono); }
   .barcode-alert { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #ef4444; }
   .barcode-alert-count { font-family: var(--mono); font-weight: 600; font-size: 18px; }
+  .filter-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .filter-row select { flex: 1; }
+  .filter-count { font-size: 12px; color: var(--muted); text-align: right; margin-bottom: 8px; font-family: var(--mono); }
 </style>
 </head>
 <body>
@@ -149,7 +152,7 @@
         <option value="juzi">Juzi</option>
         <option value="kyle">Kyle</option>
         <option value="jesse">Jesse</option>
-        <option value="Slugger">Slugger</option>
+        <option value="sup14">Slugger</option>
         <option value="sup15">Supervisor 15</option>
         <option value="sup16">Supervisor 16</option>
         <option value="sup17">Supervisor 17</option>
@@ -203,6 +206,12 @@
         <span class="search-icon">🔍</span>
         <input type="text" id="tool-search" placeholder="Search by name or asset number..." oninput="renderTools()">
       </div>
+      <div class="filter-row">
+        <select id="location-filter" onchange="renderTools()">
+          <option value="">All locations</option>
+        </select>
+      </div>
+      <div class="filter-count" id="tools-count"></div>
       <div class="card">
         <div class="card-title">All tools</div>
         <div id="tools-list"><div class="loading-bar"><span class="spinner"></span>Loading...</div></div>
@@ -357,7 +366,7 @@ const USER_LABELS = {
   admin:'Teejy', pidge:'Pidge', sam:'Sam', smitty:'Smitty',
   clarky:'Clarky', vinnie:'Vinnie', kirky:'Kirky', hoppy:'Hoppy',
   gibby:'Gibby', annie:'Annie', juzi:'Juzi', kyle:'Kyle',
-  jesse:'Jesse', sup14:'Supervisor 14', sup15:'Supervisor 15',
+  jesse:'Jesse', sup14:'Slugger', sup15:'Supervisor 15',
   sup16:'Supervisor 16', sup17:'Supervisor 17'
 };
 
@@ -409,7 +418,15 @@ async function loadAll() {
     const raw = (data.sites||[]).filter(r=>r[0]).map(r=>String(r[0]));
     sites = [...new Set(raw)];
     if (!sites.length) sites = ['Workshop'];
+    updateLocationFilter();
   } catch(e) { showToast('Could not connect to sheet'); }
+}
+
+function updateLocationFilter() {
+  const sel = document.getElementById('location-filter');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All locations</option>' +
+    sites.map(s => `<option value="${s}" ${s===current?'selected':''}>${s}</option>`).join('');
 }
 
 function doLogin() {
@@ -511,8 +528,14 @@ function renderDashboard() {
 
 function renderTools() {
   const q=(document.getElementById('tool-search').value||'').toLowerCase();
-  const f=tools.filter(t=>t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||(t.serial||'').toLowerCase().includes(q));
+  const loc=document.getElementById('location-filter').value;
+  let f=tools.filter(t=>
+    (t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||(t.serial||'').toLowerCase().includes(q)) &&
+    (!loc || t.location===loc)
+  );
   const el=document.getElementById('tools-list');
+  const countEl=document.getElementById('tools-count');
+  countEl.textContent = loc ? `${f.length} tool${f.length!==1?'s':''} at ${loc}` : `${f.length} tool${f.length!==1?'s':''} total`;
   if(!f.length){el.innerHTML='<div class="empty-state">No tools found</div>';return;}
   el.innerHTML=f.map(t=>`
     <div class="tool-row">
@@ -681,6 +704,7 @@ async function addSite(){
   try{
     await apiCall({action:'addSite',data:JSON.stringify({name})});
     sites.push(name);document.getElementById('new-site-name').value='';
+    updateLocationFilter();
     renderAdmin();showToast('✓ Site added: '+name);
   }catch(e){showToast('Error adding site');}
 }
