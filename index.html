@@ -666,4 +666,76 @@ async function doCheckout(){
 
 async function doReturn(){
   const toolId=document.getElementById('ret-tool-selected').value;
-  const notes=document.getElementById('ret-notes
+  const notes=document.getElementById('ret-notes').value;
+  if(!toolId){showToast('Please select a tool first');return;}
+  const tool=getTool(toolId);if(!tool)return;
+  const btn=document.getElementById('btn-ret');btn.disabled=true;btn.textContent='Saving...';
+  const ts=now();
+  try{
+    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:'Workshop',condition:tool.notes})});
+    await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes})});
+    tool.location='Workshop';
+    activityLog.push({time:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes});
+    closeModal('return');renderDashboard();showToast('✓ '+tool.name+' returned to workshop');
+  }catch(e){showToast('Error saving — try again');}
+  btn.disabled=false;btn.textContent='Confirm return';
+}
+
+async function doTransfer(){
+  const toolId=document.getElementById('tr-tool-selected').value;
+  const toSite=document.getElementById('tr-site').value;
+  const notes=document.getElementById('tr-notes').value;
+  if(!toolId){showToast('Please select a tool first');return;}
+  if(!toSite)return;
+  const tool=getTool(toolId);if(!tool)return;
+  const btn=document.getElementById('btn-tr');btn.disabled=true;btn.textContent='Saving...';
+  const from=tool.location;const ts=now();
+  try{
+    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:toSite,condition:tool.notes})});
+    await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'transfer',tool:toolId,toolName:tool.name,from,to:toSite,user:USER_LABELS[currentUser]})});
+    tool.location=toSite;
+    activityLog.push({time:ts,type:'transfer',tool:toolId,toolName:tool.name,from,to:toSite,user:USER_LABELS[currentUser]});
+    closeModal('transfer');renderDashboard();showToast('✓ Transferred to '+toSite);
+  }catch(e){showToast('Error saving — try again');}
+  btn.disabled=false;btn.textContent='Confirm transfer';
+}
+
+async function addSite(){
+  const name=document.getElementById('new-site-name').value.trim();
+  if(!name||sites.includes(name))return;
+  try{
+    await apiCall({action:'addSite',data:JSON.stringify({name})});
+    sites.push(name);document.getElementById('new-site-name').value='';
+    updateLocationFilter();
+    renderAdmin();showToast('✓ Site added: '+name);
+  }catch(e){showToast('Error adding site');}
+}
+
+async function addTool(){
+  const id=document.getElementById('new-tool-id').value.trim();
+  const name=document.getElementById('new-tool-name').value.trim();
+  const cat=document.getElementById('new-tool-cat').value;
+  const location=document.getElementById('new-tool-location').value;
+  const serial=document.getElementById('new-tool-serial').value.trim();
+  const notes=('NEEDS_BARCODE '+(document.getElementById('new-tool-notes').value.trim())).trim();
+  const err=document.getElementById('add-tool-error');
+  if(!id||!name){err.style.display='block';return;}
+  if(tools.find(t=>t.id===id)){err.style.display='block';err.textContent='Asset number already exists.';return;}
+  err.style.display='none';
+  try{
+    await apiCall({action:'addTool',data:JSON.stringify({id,name,cat,notes:serial,condition:notes})});
+    await apiCall({action:'addLog',data:JSON.stringify({timestamp:now(),type:'checkout',tool:id,toolName:name,from:'',to:location+' (added)',user:USER_LABELS[currentUser]})});
+    tools.push({id,name,cat,location,serial,notes,needsBarcode:true});
+    document.getElementById('new-tool-id').value='';
+    document.getElementById('new-tool-name').value='';
+    document.getElementById('new-tool-serial').value='';
+    document.getElementById('new-tool-notes').value='';
+    renderDashboard();
+    showToast('✓ '+name+' added — barcode flag set');
+  }catch(e){showToast('Error adding tool');}
+}
+
+document.querySelectorAll('.modal-overlay').forEach(el=>{el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');});});
+</script>
+</body>
+</html>
