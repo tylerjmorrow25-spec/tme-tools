@@ -178,6 +178,7 @@
   <div class="nav">
     <div class="nav-item active" onclick="showTab('dashboard')">Dashboard</div>
     <div class="nav-item" onclick="showTab('tools')">Tools</div>
+    <div class="nav-item" onclick="showTab('addtool')">Add Tool</div>
     <div class="nav-item" onclick="showTab('log')">Activity Log</div>
     <div class="nav-item" id="nav-admin" style="display:none" onclick="showTab('admin')">Admin</div>
   </div>
@@ -218,6 +219,38 @@
       </div>
     </div>
 
+    <div id="tab-addtool" style="display:none">
+      <div class="card">
+        <div class="card-title">Add new tool</div>
+        <div class="field-group"><label class="field-label">Asset number</label><input type="text" id="new-tool-id" placeholder="e.g. A-042"></div>
+        <div class="field-group"><label class="field-label">Tool name</label><input type="text" id="new-tool-name" placeholder="e.g. Makita Drop Saw"></div>
+        <div class="field-group">
+          <label class="field-label">Category</label>
+          <select id="new-tool-cat">
+            <option value="Batteries">Batteries</option>
+            <option value="Battery tools">Battery tools</option>
+            <option value="Hand tools">Hand tools</option>
+            <option value="Office equipment">Office equipment</option>
+            <option value="Rollers">Rollers</option>
+            <option value="Safety equipment">Safety equipment</option>
+            <option value="Test equipment">Test equipment</option>
+            <option value="Tool accessories">Tool accessories</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Current location</label>
+          <select id="new-tool-location"></select>
+        </div>
+        <div class="field-group"><label class="field-label">Serial / Model Number (if applicable)</label><input type="text" id="new-tool-serial" placeholder="e.g. DHP453 / SN-123456"></div>
+        <div class="field-group"><label class="field-label">Notes (optional)</label><textarea id="new-tool-notes" placeholder="Any additional info..."></textarea></div>
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#ef4444;line-height:1.5">
+          ⚠️ All new tools are automatically flagged until they've physically passed through the workshop and been tagged with a barcode by Admin.
+        </div>
+        <button class="btn btn-primary" onclick="addTool()">Add to inventory</button>
+        <div class="error-msg" id="add-tool-error">Please fill in asset number and tool name.</div>
+      </div>
+    </div>
+
     <div id="tab-log" style="display:none">
       <div class="date-filter">
         <input type="date" id="log-date-from" title="From date">
@@ -235,7 +268,6 @@
       <div class="tab-row">
         <div class="tab active" onclick="showAdminTab('users')" id="atab-users">Users</div>
         <div class="tab" onclick="showAdminTab('sites')" id="atab-sites">Sites</div>
-        <div class="tab" onclick="showAdminTab('addtool')" id="atab-addtool">Add tool</div>
       </div>
       <div id="admin-users">
         <div class="card">
@@ -253,37 +285,6 @@
             <input type="text" id="new-site-name" placeholder="Site name e.g. Morwell">
             <button class="btn btn-primary" style="width:auto" onclick="addSite()">Add</button>
           </div>
-        </div>
-      </div>
-      <div id="admin-addtool" style="display:none">
-        <div class="card">
-          <div class="card-title">Add new tool</div>
-          <div class="field-group"><label class="field-label">Asset number</label><input type="text" id="new-tool-id" placeholder="e.g. A-042"></div>
-          <div class="field-group"><label class="field-label">Tool name</label><input type="text" id="new-tool-name" placeholder="e.g. Makita Drop Saw"></div>
-          <div class="field-group">
-            <label class="field-label">Category</label>
-            <select id="new-tool-cat">
-              <option value="Batteries">Batteries</option>
-              <option value="Battery tools">Battery tools</option>
-              <option value="Hand tools">Hand tools</option>
-              <option value="Office equipment">Office equipment</option>
-              <option value="Rollers">Rollers</option>
-              <option value="Safety equipment">Safety equipment</option>
-              <option value="Test equipment">Test equipment</option>
-              <option value="Tool accessories">Tool accessories</option>
-            </select>
-          </div>
-          <div class="field-group">
-            <label class="field-label">Current location</label>
-            <select id="new-tool-location"></select>
-          </div>
-          <div class="field-group"><label class="field-label">Serial / Model Number (if applicable)</label><input type="text" id="new-tool-serial" placeholder="e.g. DHP453 / SN-123456"></div>
-          <div class="field-group"><label class="field-label">Notes (optional)</label><textarea id="new-tool-notes" placeholder="Any additional info..."></textarea></div>
-          <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#ef4444;line-height:1.5">
-            ⚠️ All new tools are automatically flagged until they've physically passed through the workshop and been tagged with a barcode by Admin.
-          </div>
-          <button class="btn btn-primary" onclick="addTool()">Add to inventory</button>
-          <div class="error-msg" id="add-tool-error">Please fill in asset number and tool name.</div>
         </div>
       </div>
     </div>
@@ -455,22 +456,23 @@ function doLogout() {
 }
 
 function showTab(name) {
-  ['dashboard','tools','log','admin'].forEach(t => { document.getElementById('tab-'+t).style.display = t===name?'block':'none'; });
-  document.querySelectorAll('.nav-item').forEach(el => { el.classList.toggle('active', el.textContent.toLowerCase().startsWith(name==='admin'?'admin':name)); });
+  ['dashboard','tools','addtool','log','admin'].forEach(t => { document.getElementById('tab-'+t).style.display = t===name?'block':'none'; });
+  const navMap = {'dashboard':'dashboard','tools':'tools','addtool':'add tool','log':'activity log','admin':'admin'};
+  document.querySelectorAll('.nav-item').forEach(el => { el.classList.toggle('active', el.textContent.toLowerCase()===navMap[name]); });
   if(name==='dashboard') renderDashboard();
   if(name==='tools') renderTools();
+  if(name==='addtool') {
+    document.getElementById('new-tool-location').innerHTML = sites.map(s=>`<option>${s}</option>`).join('');
+  }
   if(name==='log') renderLog();
   if(name==='admin') renderAdmin();
 }
 
 function showAdminTab(name) {
-  ['users','sites','addtool'].forEach(t => {
+  ['users','sites'].forEach(t => {
     document.getElementById('admin-'+t).style.display=t===name?'block':'none';
     document.getElementById('atab-'+t).classList.toggle('active',t===name);
   });
-  if(name==='addtool') {
-    document.getElementById('new-tool-location').innerHTML = sites.map(s=>`<option>${s}</option>`).join('');
-  }
 }
 
 function barcodeBadge(tool) {
@@ -513,7 +515,7 @@ function renderDashboard() {
   }
 
   const el = document.getElementById('dashboard-out-list');
-  if(!tools.length){el.innerHTML='<div class="empty-state">No tools yet — add tools in Admin</div>';return;}
+  if(!tools.length){el.innerHTML='<div class="empty-state">No tools yet — use the Add Tool tab</div>';return;}
   if(!out.length){el.innerHTML='<div class="empty-state">All tools are in the workshop ✓</div>';return;}
   el.innerHTML=out.map(t=>`
     <div class="tool-row">
@@ -664,76 +666,4 @@ async function doCheckout(){
 
 async function doReturn(){
   const toolId=document.getElementById('ret-tool-selected').value;
-  const notes=document.getElementById('ret-notes').value;
-  if(!toolId){showToast('Please select a tool first');return;}
-  const tool=getTool(toolId);if(!tool)return;
-  const btn=document.getElementById('btn-ret');btn.disabled=true;btn.textContent='Saving...';
-  const ts=now();
-  try{
-    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:'Workshop',condition:tool.notes})});
-    await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes})});
-    tool.location='Workshop';
-    activityLog.push({time:ts,type:'return',tool:toolId,toolName:tool.name,from:tool.location,to:'Workshop',user:USER_LABELS[currentUser],notes});
-    closeModal('return');renderDashboard();showToast('✓ '+tool.name+' returned to workshop');
-  }catch(e){showToast('Error saving — try again');}
-  btn.disabled=false;btn.textContent='Confirm return';
-}
-
-async function doTransfer(){
-  const toolId=document.getElementById('tr-tool-selected').value;
-  const toSite=document.getElementById('tr-site').value;
-  const notes=document.getElementById('tr-notes').value;
-  if(!toolId){showToast('Please select a tool first');return;}
-  if(!toSite)return;
-  const tool=getTool(toolId);if(!tool)return;
-  const btn=document.getElementById('btn-tr');btn.disabled=true;btn.textContent='Saving...';
-  const from=tool.location;const ts=now();
-  try{
-    await apiCall({action:'updateTool',data:JSON.stringify({id:toolId,location:toSite,condition:tool.notes})});
-    await apiCall({action:'addLog',data:JSON.stringify({timestamp:ts,type:'transfer',tool:toolId,toolName:tool.name,from,to:toSite,user:USER_LABELS[currentUser]})});
-    tool.location=toSite;
-    activityLog.push({time:ts,type:'transfer',tool:toolId,toolName:tool.name,from,to:toSite,user:USER_LABELS[currentUser]});
-    closeModal('transfer');renderDashboard();showToast('✓ Transferred to '+toSite);
-  }catch(e){showToast('Error saving — try again');}
-  btn.disabled=false;btn.textContent='Confirm transfer';
-}
-
-async function addSite(){
-  const name=document.getElementById('new-site-name').value.trim();
-  if(!name||sites.includes(name))return;
-  try{
-    await apiCall({action:'addSite',data:JSON.stringify({name})});
-    sites.push(name);document.getElementById('new-site-name').value='';
-    updateLocationFilter();
-    renderAdmin();showToast('✓ Site added: '+name);
-  }catch(e){showToast('Error adding site');}
-}
-
-async function addTool(){
-  const id=document.getElementById('new-tool-id').value.trim();
-  const name=document.getElementById('new-tool-name').value.trim();
-  const cat=document.getElementById('new-tool-cat').value;
-  const location=document.getElementById('new-tool-location').value;
-  const serial=document.getElementById('new-tool-serial').value.trim();
-  const notes=('NEEDS_BARCODE '+(document.getElementById('new-tool-notes').value.trim())).trim();
-  const err=document.getElementById('add-tool-error');
-  if(!id||!name){err.style.display='block';return;}
-  if(tools.find(t=>t.id===id)){err.style.display='block';err.textContent='Asset number already exists.';return;}
-  err.style.display='none';
-  try{
-    await apiCall({action:'addTool',data:JSON.stringify({id,name,cat,notes:serial,condition:notes})});
-    await apiCall({action:'addLog',data:JSON.stringify({timestamp:now(),type:'checkout',tool:id,toolName:name,from:'',to:location+' (added)',user:USER_LABELS[currentUser]})});
-    tools.push({id,name,cat,location,serial,notes,needsBarcode:true});
-    document.getElementById('new-tool-id').value='';
-    document.getElementById('new-tool-name').value='';
-    document.getElementById('new-tool-serial').value='';
-    document.getElementById('new-tool-notes').value='';
-    renderDashboard();
-    showToast('✓ '+name+' added — barcode flag set');
-  }catch(e){showToast('Error adding tool');}
-}
-
-document.querySelectorAll('.modal-overlay').forEach(el=>{el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');});});
-</script>
-</body>
-</html>
+  const notes=document.getElementById('ret-notes
