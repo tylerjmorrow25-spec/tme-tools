@@ -379,6 +379,10 @@ const SITE_BADGE = {
 
 function siteBadge(location) { return SITE_BADGE[location] || 'badge-default'; }
 
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
 let currentUser = null;
 let tools = [], activityLog = [], sites = [];
 
@@ -427,7 +431,31 @@ function updateLocationFilter() {
   const sel = document.getElementById('location-filter');
   const current = sel.value;
   sel.innerHTML = '<option value="">All locations</option>' +
-    sites.map(s => `<option value="${s}" ${s===current?'selected':''}>${s}</option>`).join('');
+    sites.map(s => `<option value="${escapeHtml(s)}" ${s===current?'selected':''}>${escapeHtml(s)}</option>`).join('');
+}
+
+// Search ranking: exact ID match first, then starts-with, then contains
+function rankTools(list, q) {
+  if (!q) return list;
+  const lower = q.toLowerCase();
+  const scored = list.map(t => {
+    let score = 3;
+    const id = t.id.toLowerCase();
+    const name = t.name.toLowerCase();
+    if (id === lower || name === lower) score = 0;
+    else if (id.startsWith(lower) || name.startsWith(lower)) score = 1;
+    else if (id.includes(lower) || name.includes(lower)) score = 2;
+    return { t, score };
+  });
+  scored.sort((a,b) => a.score - b.score);
+  return scored.map(s => s.t);
+}
+
+function matchesQuery(t, q) {
+  if (!q) return true;
+  const lower = q.toLowerCase();
+  return t.name.toLowerCase().includes(lower) || t.id.toLowerCase().includes(lower) ||
+    t.cat.toLowerCase().includes(lower) || (t.serial||'').toLowerCase().includes(lower);
 }
 
 function doLogin() {
@@ -462,7 +490,7 @@ function showTab(name) {
   if(name==='dashboard') renderDashboard();
   if(name==='tools') renderTools();
   if(name==='addtool') {
-    document.getElementById('new-tool-location').innerHTML = sites.map(s=>`<option>${s}</option>`).join('');
+    document.getElementById('new-tool-location').innerHTML = sites.map(s=>`<option>${escapeHtml(s)}</option>`).join('');
   }
   if(name==='log') renderLog();
   if(name==='admin') renderAdmin();
@@ -478,7 +506,7 @@ function showAdminTab(name) {
 function barcodeBadge(tool) {
   if (!tool.needsBarcode) return '';
   if (isAdmin()) {
-    return `<span class="badge badge-barcode-admin" title="Click to clear barcode flag" onclick="clearBarcode('${tool.id}')">⚠ Needs barcode ✕</span>`;
+    return `<span class="badge badge-barcode-admin" title="Click to clear barcode flag" data-clear-barcode="${escapeHtml(tool.id)}">⚠ Needs barcode ✕</span>`;
   }
   return `<span class="badge badge-barcode">⚠ Needs barcode</span>`;
 }
@@ -500,6 +528,12 @@ async function clearBarcode(toolId) {
   } catch(e) { showToast('Error clearing barcode'); }
 }
 
+// Event delegation for barcode clear buttons (safe with any characters)
+document.addEventListener('click', e => {
+  const badge = e.target.closest('[data-clear-barcode]');
+  if (badge) clearBarcode(badge.getAttribute('data-clear-barcode'));
+});
+
 function renderDashboard() {
   const out = tools.filter(t=>t.location!=='Workshop');
   const needsBarcode = tools.filter(t=>t.needsBarcode);
@@ -520,21 +554,19 @@ function renderDashboard() {
   el.innerHTML=out.map(t=>`
     <div class="tool-row">
       <div class="tool-info">
-        <div class="tool-name">${t.name}</div>
-        <div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · '+t.serial:''}</div>
+        <div class="tool-name">${escapeHtml(t.name)}</div>
+        <div class="tool-meta">${escapeHtml(t.id)} · ${escapeHtml(t.cat)}${t.serial?' · '+escapeHtml(t.serial):''}</div>
         <div class="tool-flags">${barcodeBadge(t)}</div>
       </div>
-      <span class="badge ${siteBadge(t.location)}">${t.location}</span>
+      <span class="badge ${siteBadge(t.location)}">${escapeHtml(t.location)}</span>
     </div>`).join('');
 }
 
 function renderTools() {
-  const q=(document.getElementById('tool-search').value||'').toLowerCase();
+  const q=(document.getElementById('tool-search').value||'');
   const loc=document.getElementById('location-filter').value;
-  let f=tools.filter(t=>
-    (t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||(t.serial||'').toLowerCase().includes(q)) &&
-    (!loc || t.location===loc)
-  );
+  let f=tools.filter(t=> matchesQuery(t,q) && (!loc || t.location===loc));
+  f = rankTools(f, q);
   const el=document.getElementById('tools-list');
   const countEl=document.getElementById('tools-count');
   countEl.textContent = loc ? `${f.length} tool${f.length!==1?'s':''} at ${loc}` : `${f.length} tool${f.length!==1?'s':''} total`;
@@ -542,11 +574,11 @@ function renderTools() {
   el.innerHTML=f.map(t=>`
     <div class="tool-row">
       <div class="tool-info">
-        <div class="tool-name">${t.name}</div>
-        <div class="tool-meta">${t.id} · ${t.cat}${t.serial?' · '+t.serial:''}${t.notes&&!t.notes.includes('NEEDS_BARCODE')?' · '+t.notes:''}</div>
+        <div class="tool-name">${escapeHtml(t.name)}</div>
+        <div class="tool-meta">${escapeHtml(t.id)} · ${escapeHtml(t.cat)}${t.serial?' · '+escapeHtml(t.serial):''}${t.notes&&!t.notes.includes('NEEDS_BARCODE')?' · '+escapeHtml(t.notes):''}</div>
         <div class="tool-flags">${barcodeBadge(t)}</div>
       </div>
-      <span class="badge ${siteBadge(t.location)}">${t.location}</span>
+      <span class="badge ${siteBadge(t.location)}">${escapeHtml(t.location)}</span>
     </div>`).join('');
 }
 
@@ -562,56 +594,69 @@ function renderLog() {
   if(!entries.length){el.innerHTML='<div class="empty-state">No activity in this period</div>';return;}
   el.innerHTML=entries.map(e=>{
     let dotClass='log-dot-out',text='';
-    if(e.type==='checkout') text=`<strong>${e.toolName}</strong> (${e.tool}) checked out to <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${e.to}</span> by ${e.user}`;
-    else if(e.type==='return'){dotClass='log-dot-return';text=`<strong>${e.toolName}</strong> (${e.tool}) returned to <span class="badge badge-workshop" style="font-size:9px">Workshop</span> by ${e.user}${e.notes?' — '+e.notes:''}`;}
-    else if(e.type==='transfer'){dotClass='log-dot-transfer';text=`<strong>${e.toolName}</strong> (${e.tool}) transferred <span class="badge ${siteBadge(e.from)}" style="font-size:9px">${e.from}</span> → <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${e.to}</span> by ${e.user}`;}
-    else if(e.type==='barcode'){dotClass='log-dot-cleared';text=`<strong>${e.toolName}</strong> (${e.tool}) barcode cleared by ${e.user}`;}
+    const tn = escapeHtml(e.toolName), tid = escapeHtml(e.tool), us = escapeHtml(e.user);
+    if(e.type==='checkout') text=`<strong>${tn}</strong> (${tid}) checked out to <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${escapeHtml(e.to)}</span> by ${us}`;
+    else if(e.type==='return'){dotClass='log-dot-return';text=`<strong>${tn}</strong> (${tid}) returned to <span class="badge badge-workshop" style="font-size:9px">Workshop</span> by ${us}${e.notes?' — '+escapeHtml(e.notes):''}`;}
+    else if(e.type==='transfer'){dotClass='log-dot-transfer';text=`<strong>${tn}</strong> (${tid}) transferred <span class="badge ${siteBadge(e.from)}" style="font-size:9px">${escapeHtml(e.from)}</span> → <span class="badge ${siteBadge(e.to)}" style="font-size:9px">${escapeHtml(e.to)}</span> by ${us}`;}
+    else if(e.type==='barcode'){dotClass='log-dot-cleared';text=`<strong>${tn}</strong> (${tid}) barcode cleared by ${us}`;}
     return `<div class="log-row"><div class="log-dot ${dotClass}"></div><div class="log-text">${text}</div><div class="log-time">${e.time}</div></div>`;
   }).join('');
 }
 
 function renderAdmin() {
   document.getElementById('users-list').innerHTML=Object.entries(USER_LABELS).map(([k,v])=>`<div class="tool-row"><div class="tool-info"><div class="tool-name">${v}</div><div class="tool-meta">${k==='admin'?'Administrator':'Supervisor'}</div></div><span class="badge" style="background:var(--surface2);color:var(--muted)">${k==='admin'?'admin':'user'}</span></div>`).join('');
-  document.getElementById('sites-list').innerHTML=sites.map(s=>`<span class="badge ${siteBadge(s)}" style="margin:3px;padding:4px 10px;font-size:12px">${s}</span>`).join('');
+  document.getElementById('sites-list').innerHTML=sites.map(s=>`<span class="badge ${siteBadge(s)}" style="margin:3px;padding:4px 10px;font-size:12px">${escapeHtml(s)}</span>`).join('');
 }
 
+// ── SAFE TOOL SELECTION (data attributes + event delegation) ──
 function buildToolList(containerId, selectedId, toolList) {
   const el = document.getElementById(containerId);
   if(!toolList.length){ el.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;text-align:center">No tools found</div>'; return; }
   el.innerHTML = toolList.map(t => `
-    <div class="tool-option ${document.getElementById(selectedId).value===t.id?'selected':''}"
-      onclick="selectTool('${selectedId}','${containerId}','${t.id}','${t.name.replace(/'/g,"\\'")}','${t.id}')">
+    <div class="tool-option ${document.getElementById(selectedId).value===t.id?'selected':''}" data-tool-id="${escapeHtml(t.id)}" data-target="${selectedId}">
       <div>
-        <div class="tool-option-name">${t.name}${t.needsBarcode?' <span style="color:#ef4444;font-size:10px">⚠</span>':''}</div>
-        <div class="tool-option-meta">${t.id} · ${t.cat}</div>
+        <div class="tool-option-name">${escapeHtml(t.name)}${t.needsBarcode?' <span style="color:#ef4444;font-size:10px">⚠</span>':''}</div>
+        <div class="tool-option-meta">${escapeHtml(t.id)} · ${escapeHtml(t.cat)}</div>
       </div>
-      <span class="badge ${siteBadge(t.location)}" style="font-size:9px">${t.location}</span>
+      <span class="badge ${siteBadge(t.location)}" style="font-size:9px">${escapeHtml(t.location)}</span>
     </div>`).join('');
 }
 
-function selectTool(hiddenId, listId, id, name, assetId) {
-  document.getElementById(hiddenId).value = id;
+// Event delegation handles clicks safely regardless of characters in names
+document.addEventListener('click', e => {
+  const opt = e.target.closest('.tool-option');
+  if (!opt) return;
+  const toolId = opt.getAttribute('data-tool-id');
+  const targetId = opt.getAttribute('data-target');
+  if (!toolId || !targetId) return;
+  const tool = getTool(toolId);
+  if (!tool) return;
+  document.getElementById(targetId).value = toolId;
   const labelMap = { 'co-tool-selected':'co-selected-label', 'ret-tool-selected':'ret-selected-label', 'tr-tool-selected':'tr-selected-label' };
-  document.getElementById(labelMap[hiddenId]).textContent = '✓ '+name+' ('+assetId+')';
-  document.querySelectorAll('#'+listId+' .tool-option').forEach(el => el.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-}
+  const labelEl = document.getElementById(labelMap[targetId]);
+  if (labelEl) labelEl.textContent = '✓ '+tool.name+' ('+tool.id+')';
+  opt.parentElement.querySelectorAll('.tool-option').forEach(o => o.classList.remove('selected'));
+  opt.classList.add('selected');
+});
 
 function filterCoTools() {
-  const q = document.getElementById('co-search').value.toLowerCase();
-  const list = tools.filter(t=>t.location==='Workshop' && (t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)));
+  const q = document.getElementById('co-search').value;
+  let list = tools.filter(t=>t.location==='Workshop' && matchesQuery(t,q));
+  list = rankTools(list, q);
   buildToolList('co-tool-list','co-tool-selected',list);
 }
 
 function filterRetTools() {
-  const q = document.getElementById('ret-search').value.toLowerCase();
-  const list = tools.filter(t=>t.location!=='Workshop' && (t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)));
+  const q = document.getElementById('ret-search').value;
+  let list = tools.filter(t=>t.location!=='Workshop' && matchesQuery(t,q));
+  list = rankTools(list, q);
   buildToolList('ret-tool-list','ret-tool-selected',list);
 }
 
 function filterTrTools() {
-  const q = document.getElementById('tr-search').value.toLowerCase();
-  const list = tools.filter(t=>t.location!=='Workshop' && (t.name.toLowerCase().includes(q)||t.id.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)));
+  const q = document.getElementById('tr-search').value;
+  let list = tools.filter(t=>t.location!=='Workshop' && matchesQuery(t,q));
+  list = rankTools(list, q);
   buildToolList('tr-tool-list','tr-tool-selected',list);
 }
 
@@ -622,7 +667,7 @@ function openModal(type) {
     document.getElementById('co-tool-selected').value='';
     document.getElementById('co-selected-label').textContent='';
     document.getElementById('co-notes').value='';
-    document.getElementById('co-site').innerHTML=nonWs.map(s=>`<option>${s}</option>`).join('');
+    document.getElementById('co-site').innerHTML=nonWs.map(s=>`<option>${escapeHtml(s)}</option>`).join('');
     buildToolList('co-tool-list','co-tool-selected',tools.filter(t=>t.location==='Workshop'));
   }
   if(type==='return'){
@@ -637,7 +682,7 @@ function openModal(type) {
     document.getElementById('tr-tool-selected').value='';
     document.getElementById('tr-selected-label').textContent='';
     document.getElementById('tr-notes').value='';
-    document.getElementById('tr-site').innerHTML=nonWs.map(s=>`<option>${s}</option>`).join('');
+    document.getElementById('tr-site').innerHTML=nonWs.map(s=>`<option>${escapeHtml(s)}</option>`).join('');
     buildToolList('tr-tool-list','tr-tool-selected',tools.filter(t=>t.location!=='Workshop'));
   }
   document.getElementById('modal-'+type).classList.add('open');
