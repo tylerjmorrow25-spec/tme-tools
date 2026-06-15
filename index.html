@@ -178,7 +178,7 @@
   <div class="nav">
     <div class="nav-item active" onclick="showTab('dashboard')">Dashboard</div>
     <div class="nav-item" onclick="showTab('tools')">Tools</div>
-    <div class="nav-item" onclick="showTab('addtool')">Add Tool</div>
+    <div class="nav-item" id="nav-addtool" style="display:none" onclick="showTab('addtool')">Add Tool</div>
     <div class="nav-item" onclick="showTab('log')">Activity Log</div>
     <div class="nav-item" id="nav-admin" style="display:none" onclick="showTab('admin')">Admin</div>
   </div>
@@ -371,6 +371,9 @@ const USER_LABELS = {
   sup16:'Supervisor 16', sup17:'Supervisor 17'
 };
 
+// Users allowed to add tools
+const ADD_TOOL_USERS = ['admin', 'sup14', 'juzi'];
+
 const SITE_BADGE = {
   'Workshop':'badge-workshop', 'Wooreen':'badge-wooreen', 'Graymont':'badge-graymont',
   'Mill':'badge-mill', 'Hazelwood':'badge-hazelwood', 'Delburn':'badge-delburn',
@@ -395,6 +398,7 @@ function fmtTime(d) {
 function now() { return fmtTime(new Date()); }
 function getTool(id) { return tools.find(t => t.id === id); }
 function isAdmin() { return currentUser === 'admin'; }
+function canAddTool() { return ADD_TOOL_USERS.includes(currentUser); }
 
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -434,7 +438,6 @@ function updateLocationFilter() {
     sites.map(s => `<option value="${escapeHtml(s)}" ${s===current?'selected':''}>${escapeHtml(s)}</option>`).join('');
 }
 
-// Search ranking: exact ID match first, then starts-with, then contains
 function rankTools(list, q) {
   if (!q) return list;
   const lower = q.toLowerCase();
@@ -470,6 +473,7 @@ function doLogin() {
   document.getElementById('app').style.display='flex';
   document.getElementById('topbar-username').textContent = USER_LABELS[user];
   document.getElementById('nav-admin').style.display = isAdmin() ? 'block' : 'none';
+  document.getElementById('nav-addtool').style.display = canAddTool() ? 'block' : 'none';
   loadAll().then(() => showTab('dashboard'));
 }
 
@@ -484,6 +488,7 @@ function doLogout() {
 }
 
 function showTab(name) {
+  if (name==='addtool' && !canAddTool()) return;
   ['dashboard','tools','addtool','log','admin'].forEach(t => { document.getElementById('tab-'+t).style.display = t===name?'block':'none'; });
   const navMap = {'dashboard':'dashboard','tools':'tools','addtool':'add tool','log':'activity log','admin':'admin'};
   document.querySelectorAll('.nav-item').forEach(el => { el.classList.toggle('active', el.textContent.toLowerCase()===navMap[name]); });
@@ -528,7 +533,6 @@ async function clearBarcode(toolId) {
   } catch(e) { showToast('Error clearing barcode'); }
 }
 
-// Event delegation for barcode clear buttons (safe with any characters)
 document.addEventListener('click', e => {
   const badge = e.target.closest('[data-clear-barcode]');
   if (badge) clearBarcode(badge.getAttribute('data-clear-barcode'));
@@ -549,7 +553,7 @@ function renderDashboard() {
   }
 
   const el = document.getElementById('dashboard-out-list');
-  if(!tools.length){el.innerHTML='<div class="empty-state">No tools yet — use the Add Tool tab</div>';return;}
+  if(!tools.length){el.innerHTML='<div class="empty-state">No tools yet</div>';return;}
   if(!out.length){el.innerHTML='<div class="empty-state">All tools are in the workshop ✓</div>';return;}
   el.innerHTML=out.map(t=>`
     <div class="tool-row">
@@ -608,7 +612,6 @@ function renderAdmin() {
   document.getElementById('sites-list').innerHTML=sites.map(s=>`<span class="badge ${siteBadge(s)}" style="margin:3px;padding:4px 10px;font-size:12px">${escapeHtml(s)}</span>`).join('');
 }
 
-// ── SAFE TOOL SELECTION (data attributes + event delegation) ──
 function buildToolList(containerId, selectedId, toolList) {
   const el = document.getElementById(containerId);
   if(!toolList.length){ el.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px;text-align:center">No tools found</div>'; return; }
@@ -622,7 +625,6 @@ function buildToolList(containerId, selectedId, toolList) {
     </div>`).join('');
 }
 
-// Event delegation handles clicks safely regardless of characters in names
 document.addEventListener('click', e => {
   const opt = e.target.closest('.tool-option');
   if (!opt) return;
@@ -757,6 +759,7 @@ async function addSite(){
 }
 
 async function addTool(){
+  if(!canAddTool()){showToast('You do not have permission to add tools');return;}
   const id=document.getElementById('new-tool-id').value.trim();
   const name=document.getElementById('new-tool-name').value.trim();
   const cat=document.getElementById('new-tool-cat').value;
